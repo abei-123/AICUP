@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-#Swing-Action Attribute Prediction ‖ Enhanced 1-D CNN + Transformer
-#改进：预训练二元分类头，BatchNorm+Dropout，FocalLoss，动态权重，早停
-
+"""
+Swing-Action Attribute Prediction ‖ Enhanced 1-D CNN + Transformer
+改进：预训练二元分类头，BatchNorm+Dropout，FocalLoss，动态权重，早停
+"""
 import argparse, random, json
 from pathlib import Path
 import numpy as np, pandas as pd
@@ -185,6 +186,8 @@ def run_train(epochs=50, batch_size=64, val_every=5, patience=5, pretrain=False)
     # Validate helper
     def validate():
         model.eval(); pg, ph, yg, yh = [], [], [], []
+        py_pred, py_true = [], []
+        lvl_pred, lvl_true = [], []
         with torch.no_grad():
             for x, y in dl_va:
                 x, y = x.to(DEVICE), y.to(DEVICE)
@@ -192,10 +195,23 @@ def run_train(epochs=50, batch_size=64, val_every=5, patience=5, pretrain=False)
                 pg.append(torch.sigmoid(o['gender']).cpu().numpy().ravel())
                 ph.append(torch.sigmoid(o['handed']).cpu().numpy().ravel())
                 yg.append(y[:,0].cpu().numpy()); yh.append(y[:,1].cpu().numpy())
+                yy = torch.softmax(o['years'], dim=1).cpu().numpy()
+                lv = torch.softmax(o['level'], dim=1).cpu().numpy()
+                py_pred.append(yy); py_true.append(y[:,2].cpu().numpy())
+                lvl_pred.append(lv); lvl_true.append(y[:,3].cpu().numpy())
         pg = np.concatenate(pg); ph = np.concatenate(ph)
         yg = np.concatenate(yg); yh = np.concatenate(yh)
-        auc_g = roc_auc_score(yg, pg); auc_h = roc_auc_score(yh, ph)
-        print(f'Val AUC gender={auc_g:.4f}, handed={auc_h:.4f}')
+        py_pred = np.vstack(py_pred); py_true = np.concatenate(py_true)
+        lvl_pred = np.vstack(lvl_pred); lvl_true = np.concatenate(lvl_true)
+        auc_g   = roc_auc_score(yg, pg)
+        auc_h   = roc_auc_score(yh, ph)
+        auc_py  = roc_auc_score(py_true, py_pred, multi_class='ovr', average='macro')
+        auc_lvl = roc_auc_score(lvl_true, lvl_pred, multi_class='ovr', average='macro')
+
+        print(f'gender: {auc_g}')
+        print(f'hand: {auc_h}')
+        print(f'play age AUC: {auc_py}')
+        print(f'level AUC: {auc_lvl}')
         return auc_g + auc_h
     # Training loop
     for ep in range(1, epochs+1):
