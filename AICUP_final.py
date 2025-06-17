@@ -233,8 +233,6 @@ def run_train(epochs=50, batch_size=64, val_every=5, patience=5, pretrain=False)
                 no_imp +=1
             if no_imp >= patience:
                 print('Early stopping'); break
-    print('Training complete, best AUC sum=', best_auc_sum)
-
 # ---- Predict ----
 def run_predict(batch_size=64):
     model = Net().to(DEVICE)
